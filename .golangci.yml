@@ -21,7 +21,7 @@ linters:
     - godox
     - gofmt
     - revive
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - govet
@@ -31,7 +31,7 @@ linters:
     - nakedret
     - prealloc
     - rowserrcheck
-    - exportloopref
+    - copyloopvar
     - staticcheck
     - stylecheck
     - typecheck
@@ -54,8 +54,10 @@ issues:
 linters-settings:
   govet:
     enable-all: true
+
   funlen:
     lines: 100
 
 output:
-  format: line-number
+  formats:
+    - format: line-number
