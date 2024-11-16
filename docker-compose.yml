@@ -1,10 +1,8 @@
 ---
 
-version: "3.9"
-
 services:
-  devcontainer:
-    image: marcodellorto/golang:1.22-bookworm-dev
+  bitbucket-runner-autoscaler:
+    image: marcodellorto/golang:1.23-bookworm-dev
     command: sleep infinity
     volumes:
       - .:/var/workspace

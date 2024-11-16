@@ -1,10 +1,9 @@
 {
-  "name": "golang-devcontainer",
+  "name": "bitbucket-runner-autoscaler",
   "dockerComposeFile": [
-    "../docker-compose.yml",
-    "../docker-compose.override.yml"
+    "../docker-compose.yml"
   ],
-  "service": "devcontainer",
+  "service": "bitbucket-runner-autoscaler",
   "workspaceFolder": "/var/workspace",
   "mounts": [
     "source=${env:HOME}${env:USERPROFILE}/.aws,target=/root/.aws,type=bind",
