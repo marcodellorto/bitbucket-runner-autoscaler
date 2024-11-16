@@ -14,9 +14,12 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@main
-      - name: make vendor
-        run: make vendor
-      - name: make lint
-        run: make lint
-      - name: make test
-        run: make test
+      - name: run
+        uses: addnab/docker-run-action@v3
+        with:
+          image: marcodellorto/golang:1.23-bookworm-dev
+          options: -v ${{ github.workspace }}:/var/www
+          run: |
+            make vendor
+            make lint
+            make test
