@@ -1,0 +1,22 @@
+name: push and pull request actions on master
+
+'on':
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@main
+      - name: make vendor
+        run: make vendor
+      - name: make lint
+        run: make lint
+      - name: make test
+        run: make test
