@@ -1,0 +1,56 @@
+{
+  "name": "golang-devcontainer",
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "../docker-compose.override.yml"
+  ],
+  "service": "devcontainer",
+  "workspaceFolder": "/var/workspace",
+  "mounts": [
+    "source=${env:HOME}${env:USERPROFILE}/.aws,target=/root/.aws,type=bind",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        },
+        "go.gopath": "/go",
+        "go.inferGopath": false,
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint",
+        "go.formatTool": "goimports",
+        "go.testFlags": [
+          "-v"
+        ],
+        "yaml.customTags": [
+          "!Equals sequence",
+          "!FindInMap sequence",
+          "!GetAtt",
+          "!GetAZs",
+          "!If sequence",
+          "!ImportValue",
+          "!Join sequence",
+          "!Ref",
+          "!Select sequence",
+          "!Split sequence",
+          "!Sub"
+        ]
+      },
+      "extensions": [
+        "golang.go",
+        "ms-vscode.go",
+        "eamodio.gitlens",
+        "amazonwebservices.aws-toolkit-vscode",
+        "TzachOvadia.todo-list",
+        "redhat.vscode-yaml",
+        "editorconfig.editorconfig",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

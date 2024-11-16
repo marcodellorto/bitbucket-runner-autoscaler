@@ -1,0 +1,27 @@
+#ides
+.idea
+
+# temporary files
+*~
+*.swp
+coverage.out
+
+# hidden stuff
+.*
+!.devcontainer
+!.github
+!.gitlab
+!.gitlab-ci.yml
+!.editorconfig
+!.gitignore
+!.yamllint
+!.golangci.yml
+!.docker
+!.dockerignore
+
+# docker
+docker-compose.override.yml
+
+# project related
+/bin
+/vendor
