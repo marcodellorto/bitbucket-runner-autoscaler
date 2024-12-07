@@ -56,7 +56,7 @@ func TestGetRunners(t *testing.T) {
 	validGetRunnersResponse := &GetRunnersResponse{}
 	_ = json.Unmarshal([]byte(validResponse), &validGetRunnersResponse)
 
-	url := fmt.Sprintf("%s/%s/pipelines-config/runners?pagelen=%d", baseURL, workspaceUUID, Pagelen)
+	url := fmt.Sprintf("%s/internal/workspaces/%s/pipelines-config/runners?pagelen=%d", baseURL, workspaceUUID, Pagelen)
 
 	tables := []struct {
 		client           func() *mocks.HTTPClient
@@ -93,11 +93,25 @@ func TestGetRunners(t *testing.T) {
 			},
 		},
 		{
+			name: "response status code is not 200",
+			client: func() *mocks.HTTPClient {
+				m := mocks.HTTPClient{}
+
+				m.On("Get", url).Return(&http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("{}"))}, nil).Once()
+
+				return &m
+			},
+			expectedResponse: nil,
+			expectedError: func() error {
+				return fmt.Errorf("failed to fetch runners, status: 400, body: {}")
+			},
+		},
+		{
 			name: "json.Unmarshal returns an error",
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
 
-				m.On("Get", url).Return(&http.Response{Body: io.NopCloser(strings.NewReader("{"))}, nil).Once()
+				m.On("Get", url).Return(&http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{"))}, nil).Once()
 
 				return &m
 			},
@@ -126,7 +140,7 @@ func TestGetRunners(t *testing.T) {
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
 
-				m.On("Get", url).Return(&http.Response{Body: io.NopCloser(strings.NewReader(validResponse))}, nil).Once()
+				m.On("Get", url).Return(&http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(validResponse))}, nil).Once()
 
 				return &m
 			},
