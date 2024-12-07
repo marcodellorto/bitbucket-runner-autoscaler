@@ -1,0 +1,26 @@
+name: push and pull request actions on master
+
+'on':
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@main
+      - name: run
+        uses: addnab/docker-run-action@v3
+        with:
+          image: marcodellorto/golang:1.23-bookworm-dev
+          options: -v ${{ github.workspace }}:/var/workspace
+          run: |
+            cd /var/workspace
+            make vendor
+            make lint
+            make test
