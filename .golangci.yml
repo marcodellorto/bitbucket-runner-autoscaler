@@ -7,7 +7,6 @@ run:
 linters:
   enable:
     - bodyclose
-    - depguard
     - dogsled
     - dupl
     - errcheck
@@ -18,10 +17,9 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - godox
     - gofmt
     - revive
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - govet
@@ -31,7 +29,7 @@ linters:
     - nakedret
     - prealloc
     - rowserrcheck
-    - exportloopref
+    - copyloopvar
     - staticcheck
     - stylecheck
     - typecheck
@@ -50,12 +48,15 @@ issues:
         - bodyclose
         - gosec
         - lll
+        - dupl
 
 linters-settings:
   govet:
     enable-all: true
+
   funlen:
     lines: 100
 
 output:
-  format: line-number
+  formats:
+    - format: line-number
