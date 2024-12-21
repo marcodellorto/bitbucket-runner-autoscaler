@@ -48,6 +48,7 @@ issues:
         - bodyclose
         - gosec
         - lll
+        - dupl
 
 linters-settings:
   govet:
