@@ -95,12 +95,19 @@ func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
 
 	resp, err := c.client.Get(url)
 	if err != nil {
+		c.logger.Error("failed to fetch runners",
+			"error", err,
+			"url", c.baseURL+fmt.Sprintf(GetRunnerPath, c.workspaceUUID, runnerUUID),
+		)
 		return nil, err
 	}
+
+	c.logger.Debug("deferring the closure of the response", "debug", "defer resp.Body.Close()")
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.logger.Error("failed to read the response body", "error", err)
 		return nil, err
 	}
 
@@ -108,6 +115,7 @@ func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
 		return nil, fmt.Errorf("failed to fetch runner, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
+	c.logger.Info("Successfully got bitbucket runners runners", "info", resp.StatusCode)
 	var runner Runner
 	if err := json.Unmarshal(body, &runner); err != nil {
 		c.logger.Error("failed to unmarshal the body", "error", err)
