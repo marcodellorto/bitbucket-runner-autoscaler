@@ -79,7 +79,7 @@ func (c *BitbucketClient) GetRunners() (response *GetRunnersResponse, err error)
 		return nil, fmt.Errorf("failed to fetch runners, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	c.logger.Info("Successfully got bitbucket runners runners", "info", resp.StatusCode)
+	c.logger.Info("Successfully got bitbucket runners", "info", resp.StatusCode)
 
 	err = json.Unmarshal(body, &response)
 	if err != nil {
@@ -115,7 +115,7 @@ func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
 		return nil, fmt.Errorf("failed to fetch runner, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	c.logger.Info("Successfully got bitbucket runners runners", "info", resp.StatusCode)
+	c.logger.Info("Successfully got bitbucket runner", "info", "runner-uuid="+runnerUUID)
 	var runner Runner
 	if err := json.Unmarshal(body, &runner); err != nil {
 		c.logger.Error("failed to unmarshal the body", "error", err)

@@ -318,7 +318,7 @@ func TestGetRunner(t *testing.T) {
 			logger: func() *mocks.Logger {
 				m := mocks.Logger{}
 				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
-				m.On("Info", "Successfully got bitbucket runners runners", []interface{}{"info", http.StatusOK})
+				m.On("Info", "Successfully got bitbucket runner", []interface{}{"info", "runner-uuid=" + runnerUUID}).Once()
 				m.On("Error", humanReadableErrorMessages[2], []interface{}{"error", jsonGenericError()})
 				return &m
 			},
@@ -343,7 +343,7 @@ func TestGetRunner(t *testing.T) {
 			logger: func() *mocks.Logger {
 				m := mocks.Logger{}
 				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
-				m.On("Info", "Successfully got bitbucket runners runners", []interface{}{"info", http.StatusOK})
+				m.On("Info", "Successfully got bitbucket runner", []interface{}{"info", "runner-uuid=" + runnerUUID}).Once()
 				return &m
 			},
 			expectedResponse: validGetRunnerResponse,
