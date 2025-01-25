@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/marcodellorto/bitbucket-runner-autoscaler/internal/domain/ports"
+	"github.com/marcodellorto/bitbucket-runner-autoscaler/internal/infra/logger"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
@@ -27,7 +28,7 @@ type BitbucketClient struct {
 	client        ports.HTTPClient
 	baseURL       string
 	workspaceUUID string
-	// TODO: add logger
+	logger        ports.Logger
 }
 
 func NewBitbucketClient(workspaceUUID, baseURL, accessTokenURL, clientID, clientSecret string) *BitbucketClient {
@@ -40,29 +41,37 @@ func NewBitbucketClient(workspaceUUID, baseURL, accessTokenURL, clientID, client
 
 	client := config.Client(context.Background())
 
-	return New(client, baseURL, workspaceUUID)
+	//debug level
+	logger := logger.NewLogger(-4)
+
+	return New(client, logger, baseURL, workspaceUUID)
 }
 
-func New(client ports.HTTPClient, baseURL, workspaceUUID string) *BitbucketClient {
+func New(client ports.HTTPClient, logger ports.Logger, baseURL, workspaceUUID string) *BitbucketClient {
 	return &BitbucketClient{
 		client:        client,
 		baseURL:       baseURL,
 		workspaceUUID: workspaceUUID,
+		logger:        logger,
 	}
 }
 
 func (c *BitbucketClient) GetRunners() (response *GetRunnersResponse, err error) {
 	resp, err := c.client.Get(c.baseURL + fmt.Sprintf(GetRunnersPath, c.workspaceUUID, Pagelen))
 	if err != nil {
-		// TODO: log error
+		c.logger.Error("failed to fetch runners",
+			"error", err,
+			"url", c.baseURL+fmt.Sprintf(GetRunnersPath, c.workspaceUUID, Pagelen),
+		)
 		return nil, err
 	}
 
+	c.logger.Debug("deferring the closure of the response", "debug", "defer resp.Body.Close()")
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		// TODO: Error reading response body: err
+		c.logger.Error("failed to read the response body", "error", err)
 		return
 	}
 
@@ -70,9 +79,11 @@ func (c *BitbucketClient) GetRunners() (response *GetRunnersResponse, err error)
 		return nil, fmt.Errorf("failed to fetch runners, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
+	c.logger.Info("Successfully got bitbucket runners runners", "info", resp.StatusCode)
+
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		// TODO: log Error unmarshalling response: err
+		c.logger.Error("failed to unmarshal the body", "error", err)
 		return
 	}
 
@@ -99,7 +110,7 @@ func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
 
 	var runner Runner
 	if err := json.Unmarshal(body, &runner); err != nil {
-		// TODO: log Error unmarshalling response: err
+		c.logger.Error("failed to unmarshal the body", "error", err)
 		return nil, err
 	}
 

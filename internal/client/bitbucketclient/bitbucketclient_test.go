@@ -10,6 +10,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/marcodellorto/bitbucket-runner-autoscaler/internal/infra/logger"
 	"github.com/marcodellorto/bitbucket-runner-autoscaler/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,6 +20,25 @@ type ErrReader struct{}
 
 func (e *ErrReader) Read([]byte) (n int, err error) {
 	return 0, fmt.Errorf("simulated read error")
+}
+
+func jsonGenericError() error {
+	mySyntaxError := &json.SyntaxError{}
+
+	// Use reflection to set the unexported 'msg' field
+	msgField := reflect.ValueOf(mySyntaxError).Elem().FieldByName("msg")
+	if !msgField.IsValid() {
+		panic("field 'msg' not found")
+	}
+
+	// Get an unsafe pointer to the 'msg' field
+	msgPtr := unsafe.Pointer(msgField.UnsafeAddr())
+	*(*string)(msgPtr) = "unexpected end of JSON input"
+
+	// Set the exported 'Offset' field directly
+	mySyntaxError.Offset = 1
+
+	return mySyntaxError
 }
 
 func TestGetRunners(t *testing.T) {
@@ -54,6 +74,20 @@ func TestGetRunners(t *testing.T) {
 }`
 	)
 
+	debugMessages := []string{
+		"deferring the closure of the response",
+	}
+
+	humanReadableErrorMessages := []string{
+		"failed to fetch runners",
+		"failed to read the response body",
+		"failed to unmarshal the body",
+	}
+	goErrors := []error{
+		fmt.Errorf("something went wrong"),
+		fmt.Errorf("simulated read error"),
+		jsonGenericError(),
+	}
 	validGetRunnersResponse := &GetRunnersResponse{}
 	_ = json.Unmarshal([]byte(validResponse), &validGetRunnersResponse)
 
@@ -61,43 +95,59 @@ func TestGetRunners(t *testing.T) {
 
 	tables := []struct {
 		client           func() *mocks.HTTPClient
+		logger           func() *mocks.Logger
 		expectedResponse *GetRunnersResponse
 		expectedError    func() error
 		name             string
 	}{
 		{
 			name: "client returns an error",
+			logger: func() *mocks.Logger {
+				m := mocks.Logger{}
+				m.On("Error", humanReadableErrorMessages[0], []interface{}{"error", goErrors[0], "url", url}).Once()
+				return &m
+			},
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
 
-				m.On("Get", url).Return(&http.Response{}, fmt.Errorf("something went wrong")).Once()
+				m.On("Get", url).Return(&http.Response{}, goErrors[0]).Once()
 
 				return &m
 			},
 			expectedResponse: nil,
 			expectedError: func() error {
-				return fmt.Errorf("something went wrong")
+				return goErrors[0]
 			},
 		},
 		{
 			name: "io.ReadAll returns an error",
+			logger: func() *mocks.Logger {
+				m := mocks.Logger{}
+				m.On("Error", humanReadableErrorMessages[1], []interface{}{"error", goErrors[1]}).Once()
+				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
+
+				return &m
+			},
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
-
 				m.On("Get", url).Return(&http.Response{Body: io.NopCloser(&ErrReader{})}, nil).Once()
 
 				return &m
 			},
 			expectedResponse: nil,
 			expectedError: func() error {
-				return fmt.Errorf("simulated read error")
+				return goErrors[1]
 			},
 		},
 		{
 			name: "response status code is not 200",
+			logger: func() *mocks.Logger {
+				m := mocks.Logger{}
+				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
+				return &m
+			},
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
-
 				m.On("Get", url).Return(&http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("{}"))}, nil).Once()
 
 				return &m
@@ -109,6 +159,13 @@ func TestGetRunners(t *testing.T) {
 		},
 		{
 			name: "json.Unmarshal returns an error",
+			logger: func() *mocks.Logger {
+				m := mocks.Logger{}
+				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
+				m.On("Info", "Successfully got bitbucket runners runners", []interface{}{"info", http.StatusOK})
+				m.On("Error", humanReadableErrorMessages[2], []interface{}{"error", jsonGenericError()})
+				return &m
+			},
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
 
@@ -117,27 +174,16 @@ func TestGetRunners(t *testing.T) {
 				return &m
 			},
 			expectedResponse: nil,
-			expectedError: func() error {
-				mySyntaxError := &json.SyntaxError{}
-
-				// Use reflection to set the unexported 'msg' field
-				msgField := reflect.ValueOf(mySyntaxError).Elem().FieldByName("msg")
-				if !msgField.IsValid() {
-					panic("field 'msg' not found")
-				}
-
-				// Get an unsafe pointer to the 'msg' field
-				msgPtr := unsafe.Pointer(msgField.UnsafeAddr())
-				*(*string)(msgPtr) = "unexpected end of JSON input"
-
-				// Set the exported 'Offset' field directly
-				mySyntaxError.Offset = 1
-
-				return mySyntaxError
-			},
+			expectedError:    jsonGenericError,
 		},
 		{
 			name: "happy path",
+			logger: func() *mocks.Logger {
+				m := mocks.Logger{}
+				m.On("Debug", debugMessages[0], []interface{}{"debug", "defer resp.Body.Close()"}).Once()
+				m.On("Info", "Successfully got bitbucket runners runners", []interface{}{"info", http.StatusOK})
+				return &m
+			},
 			client: func() *mocks.HTTPClient {
 				m := mocks.HTTPClient{}
 
@@ -155,8 +201,9 @@ func TestGetRunners(t *testing.T) {
 	for _, table := range tables {
 		t.Run(table.name, func(t *testing.T) {
 			httpClient := table.client()
+			logger := table.logger()
 
-			c := New(httpClient, baseURL, workspaceUUID)
+			c := New(httpClient, logger, baseURL, workspaceUUID)
 
 			resp, err := c.GetRunners()
 
@@ -164,6 +211,8 @@ func TestGetRunners(t *testing.T) {
 			assert.Equal(t, table.expectedError(), err)
 
 			httpClient.AssertExpectations(t)
+
+			logger.AssertExpectations(t)
 		})
 	}
 }
@@ -293,11 +342,13 @@ func TestGetRunner(t *testing.T) {
 		},
 	}
 
+	logger := logger.NewLogger(-4)
+
 	for _, table := range tables {
 		t.Run(table.name, func(t *testing.T) {
 			httpClient := table.client()
 
-			c := New(httpClient, baseURL, workspaceUUID)
+			c := New(httpClient, logger, baseURL, workspaceUUID)
 
 			resp, err := c.GetRunner(runnerUUID)
 
@@ -366,11 +417,13 @@ func TestDeleteRunner(t *testing.T) {
 		},
 	}
 
+	logger := logger.NewLogger(-4)
+
 	for _, table := range tables {
 		t.Run(table.name, func(t *testing.T) {
 			httpClient := table.client()
 
-			c := New(httpClient, baseURL, workspaceUUID)
+			c := New(httpClient, logger, baseURL, workspaceUUID)
 
 			err := c.DeleteRunner(runnerUUID)
 
@@ -493,11 +546,13 @@ func TestPostRunner(t *testing.T) {
 		},
 	}
 
+	logger := logger.NewLogger(-4)
+
 	for _, table := range tables {
 		t.Run(table.name, func(t *testing.T) {
 			httpClient := table.client()
 
-			c := New(httpClient, baseURL, workspaceUUID)
+			c := New(httpClient, logger, baseURL, workspaceUUID)
 
 			res, err := c.PostRunner(req)
 
@@ -564,11 +619,12 @@ func TestPutRunnerStatus(t *testing.T) {
 		},
 	}
 
+	logger := logger.NewLogger(-4)
 	for _, table := range tables {
 		t.Run(table.name, func(t *testing.T) {
 			httpClient := table.client()
 
-			c := New(httpClient, baseURL, workspaceUUID)
+			c := New(httpClient, logger, baseURL, workspaceUUID)
 
 			err := c.PutRunnerStatus(runnerUUID, runnerNewStatus)
 
