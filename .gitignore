@@ -18,6 +18,7 @@ coverage.out
 !.golangci.yml
 !.docker
 !.dockerignore
+!.gitattributes
 
 # docker
 docker-compose.override.yml
