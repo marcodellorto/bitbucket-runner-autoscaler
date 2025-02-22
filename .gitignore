@@ -25,3 +25,4 @@ docker-compose.override.yml
 # project related
 /bin
 /vendor
+keys.env

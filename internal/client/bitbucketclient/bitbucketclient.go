@@ -57,11 +57,15 @@ func New(client ports.HTTPClient, logger ports.Logger, baseURL, workspaceUUID st
 }
 
 func (c *BitbucketClient) GetRunners() (response *GetRunnersResponse, err error) {
-	resp, err := c.client.Get(c.baseURL + fmt.Sprintf(GetRunnersPath, c.workspaceUUID, Pagelen))
+	c.logger.Info("Getting the list of all available runners")
+
+	url := c.baseURL + fmt.Sprintf(GetRunnersPath, c.workspaceUUID, Pagelen)
+	c.logger.Debug("Method GET to " + url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		c.logger.Error("failed to fetch runners",
 			"error", err,
-			"url", c.baseURL+fmt.Sprintf(GetRunnersPath, c.workspaceUUID, Pagelen),
+			"url", url,
 		)
 		return nil, err
 	}
@@ -91,13 +95,15 @@ func (c *BitbucketClient) GetRunners() (response *GetRunnersResponse, err error)
 }
 
 func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
+	c.logger.Info("Getting details about runner " + runnerUUID)
 	url := c.baseURL + fmt.Sprintf(GetRunnerPath, c.workspaceUUID, runnerUUID)
 
+	c.logger.Debug("Method GET to " + url)
 	resp, err := c.client.Get(url)
 	if err != nil {
 		c.logger.Error("failed to fetch runners",
 			"error", err,
-			"url", c.baseURL+fmt.Sprintf(GetRunnerPath, c.workspaceUUID, runnerUUID),
+			"url", url,
 		)
 		return nil, err
 	}
@@ -126,14 +132,22 @@ func (c *BitbucketClient) GetRunner(runnerUUID string) (*Runner, error) {
 }
 
 func (c *BitbucketClient) DeleteRunner(runnerUUID string) (err error) {
-	url := c.baseURL + fmt.Sprintf(DeleteRunnerPath, c.workspaceUUID, runnerUUID)
+	c.logger.Info("Deleting the runner " + runnerUUID)
 
+	url := c.baseURL + fmt.Sprintf(DeleteRunnerPath, c.workspaceUUID, runnerUUID)
+	c.logger.Debug("Method DELETE to " + url)
 	req, _ := http.NewRequest(http.MethodDelete, url, nil)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
+		c.logger.Error("failed to delete the runner",
+			"error", err,
+			"url", url,
+		)
 		return
 	}
+
+	c.logger.Debug("deferring the closure of the response", "debug", "defer resp.Body.Close()")
 	defer resp.Body.Close()
 
 	// No body expected on success; just check status code
@@ -141,6 +155,8 @@ func (c *BitbucketClient) DeleteRunner(runnerUUID string) (err error) {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to delete runner, status: %d, body: %s", resp.StatusCode, string(body))
 	}
+
+	c.logger.Info("Successfully deleted the runner", "info", "runner-uuid="+runnerUUID)
 
 	return nil
 }
@@ -150,14 +166,22 @@ func (c *BitbucketClient) PostRunner(requestBody PostRunnerRequest) (*Runner, er
 
 	bodyBytes, _ := json.Marshal(requestBody)
 
+	c.logger.Debug("POST to " + url)
 	resp, err := c.client.Post(url, contentTypeApplicationJSON, bytes.NewReader(bodyBytes))
 	if err != nil {
+		c.logger.Error("failed to post a new runner",
+			"error", err,
+			"url", url,
+		)
 		return nil, err
 	}
+
+	c.logger.Debug("deferring the closure of the response", "debug", "defer resp.Body.Close()")
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.logger.Error("failed to read the response body", "error", err)
 		return nil, err
 	}
 
@@ -165,23 +189,28 @@ func (c *BitbucketClient) PostRunner(requestBody PostRunnerRequest) (*Runner, er
 		return nil, fmt.Errorf("failed to create runner, status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
+	c.logger.Info("Successfully post'd new runner")
+
 	var runner Runner
 	if err := json.Unmarshal(body, &runner); err != nil {
+		c.logger.Error("failed to unmarshal the body", "error", err)
 		return nil, fmt.Errorf("error unmarshalling POST runner response: %s", err.Error())
 	}
+
+	c.logger.Debug("New runner ID " + runner.UUID)
 
 	return &runner, nil
 }
 
 func (c *BitbucketClient) PutRunnerStatus(runnerUUID, newStatus string) error {
-	url := c.baseURL + fmt.Sprintf(PutRunnerStatusPath, c.workspaceUUID, runnerUUID)
-
+	c.logger.Info("Updating runner with uuid"+runnerUUID+" to status ", newStatus)
 	requestBody := PutRunnerStatus{
 		Status: newStatus,
 	}
 
 	bodyBytes, _ := json.Marshal(requestBody)
-
+	url := c.baseURL + fmt.Sprintf(PutRunnerStatusPath, c.workspaceUUID, runnerUUID)
+	c.logger.Debug("PUT to " + url)
 	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", contentTypeApplicationJSON)
 
